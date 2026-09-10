@@ -833,6 +833,9 @@ p{margin:0 0 1em;max-width:66ch}
 .rv-by i{font-style:normal;font-variation-settings:'wght' 400;color:var(--ash)}
 
 @media(max-width:1000px){.rv-grid{--n:2}}
+/* Mobile: the review rail snap-scrolls by finger and auto-advances, so the
+   orange arrow buttons are hidden — they only earn their place on desktop. */
+@media(max-width:620px){.rv-nav{display:none}}
 @media(max-width:620px){
   .rv-grid{--n:1.3;--g:12px;margin-inline:calc(var(--pad) * -1);padding-inline:var(--pad);scroll-padding-inline:var(--pad)}
 }
@@ -1002,6 +1005,80 @@ p{margin:0 0 1em;max-width:66ch}
   .ig-marq{overflow-x:auto;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
   .ig-tile{scroll-snap-align:start}
 }
+
+/* ==========================================================================
+   2b · NUTRITIONAL INFORMATION  (trigger link + modal lightbox)
+   The trigger sits between the honesty note and the spec accordions. The
+   modal is one image — swap the placeholder for the real nutrition-panel
+   PNG in the theme:  <img src="{{ 'nutrition-panel.png' | asset_url }}">
+   Open/close is class-driven (.is-open) so the exit animates too; under
+   reduced motion the global kill-switch below collapses both transitions.
+   ========================================================================== */
+.nutri-link{display:inline-flex;align-items:center;gap:9px;margin:0 0 10px;
+  padding:2px 0;color:var(--char);font-size:.9rem;letter-spacing:.01em;
+  font-variation-settings:'wdth' 102,'wght' 700;cursor:pointer;
+  border-bottom:1.5px solid var(--char);padding-bottom:4px;
+  transition:color .15s var(--eq),border-color .15s var(--eq)}
+/* the accordions normally carry a 32px top margin; the link owns the gap now */
+.nutri-link + .spec{margin-top:0}
+.nutri-link svg{flex:0 0 auto;transition:transform .3s var(--ee)}
+.nutri-link:hover{color:var(--broth);border-color:var(--broth)}
+.nutri-link:hover svg{transform:rotate(90deg)}
+
+/* overlay */
+.nutri{position:fixed;inset:0;z-index:80;display:grid;place-items:center;
+  padding:clamp(14px,3vw,40px);
+  background:rgba(10,10,11,.55);
+  -webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px);
+  opacity:0;visibility:hidden;
+  transition:opacity .28s var(--eq),visibility 0s linear .28s}
+.nutri.is-open{opacity:1;visibility:visible;transition:opacity .28s var(--eq)}
+
+/* dialog card — sized by the image itself, never taller than the viewport */
+.nutri-card{position:relative;max-width:min(560px,100%);
+  display:flex;background:#fff;border-radius:14px;overflow:hidden;
+  box-shadow:0 30px 80px rgba(0,0,0,.45),0 4px 18px rgba(0,0,0,.25);
+  transform:translateY(16px) scale(.955);
+  transition:transform .42s var(--ee)}
+.nutri.is-open .nutri-card{transform:translateY(0) scale(1)}
+
+/* No inner scrollbar: the artwork is scaled to always fit in full. It is
+   capped by both the card's max-width and the viewport height (minus the
+   overlay padding), so on every screen the whole panel is visible at once
+   — portrait phones constrain by width, short landscape screens by height. */
+.nutri-scroll{display:flex;overflow:hidden}
+.nutri-scroll img{display:block;width:auto;height:auto;max-width:100%;
+  max-height:min(86svh,86vh);margin:0 auto;object-fit:contain;
+  /* gentle settle of the artwork itself, slightly behind the card */
+  opacity:0;transform:scale(1.015);
+  transition:opacity .5s var(--eq) .1s,transform .6s var(--ee) .1s}
+.nutri.is-open .nutri-scroll img{opacity:1;transform:scale(1)}
+
+/* close — same disc language as the spec/faq plus buttons */
+.nutri-x{position:absolute;top:14px;right:14px;z-index:3;width:40px;height:40px;
+  border-radius:50%;background:#fff;color:var(--char);
+  display:grid;place-items:center;cursor:pointer;
+  box-shadow:0 2px 10px rgba(0,0,0,.22),inset 0 0 0 1px rgba(0,0,0,.08);
+  transition:background .15s var(--eq),color .15s var(--eq),transform .2s var(--ee)}
+.nutri-x:hover{background:var(--char);color:#fff;transform:rotate(90deg)}
+.nutri-x:focus-visible{outline:2px solid var(--broth);outline-offset:3px}
+
+/* slim identity bar pinned to the card top */
+.nutri-bar{position:absolute;top:0;left:0;right:0;z-index:2;pointer-events:none;
+  padding:16px 66px 16px 20px;display:flex;align-items:center;gap:10px;
+  background:linear-gradient(180deg,rgba(255,255,255,.94) 30%,rgba(255,255,255,0));
+  font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--char);
+  font-variation-settings:'wdth' 104,'wght' 750}
+.nutri-bar i{width:7px;height:7px;border-radius:50%;background:var(--broth);font-style:normal}
+
+@media(max-width:520px){
+  .nutri{padding:12px}
+  .nutri-card{max-width:100%;border-radius:12px}
+  .nutri-scroll img{max-height:min(90svh,90vh)}
+  .nutri-x{top:10px;right:10px;width:36px;height:36px}
+}
+/* while open, the page behind must not scroll */
+body.nutri-lock{overflow:hidden}
 
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
@@ -1230,6 +1307,12 @@ p{margin:0 0 1em;max-width:66ch}
         <p><b>Two things we'd rather you knew now.</b> It's unflavoured, so it tastes like broth, not vanilla. And it clumps if you shake it &mdash; which is exactly why we send a frother with every subscription.</p>
       </div>
 
+      <!-- VIEW NUTRITIONAL INFORMATION (opens modal) -->
+      <button class="nutri-link" id="nutriOpen" aria-haspopup="dialog" aria-controls="nutriModal">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8v.1"/></svg>
+        View Nutritional Information
+      </button>
+
       <!-- PRODUCT SPEC ACCORDIONS -->
       <div class="spec">
 
@@ -1304,18 +1387,18 @@ p{margin:0 0 1em;max-width:66ch}
 
 <!-- ══════════ 2a · CERTIFICATION TICKER ══════════ -->
 <svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute">
-  <symbol id="ic-halal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 3.5a8.5 8.5 0 1 0 6 14.3 7 7 0 0 1-6-14.3z"/><path d="m17.8 4.2.7 1.5 1.6.2-1.2 1.1.3 1.6-1.4-.8-1.4.8.3-1.6-1.2-1.1 1.6-.2z"/></symbol>
-  <symbol id="ic-grass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V11"/><path d="M12 15c-4.5 0-6.5-2.8-7-7 4.5 0 6.8 2.6 7 7z"/><path d="M12 12c0-4.4 2.6-6.8 7-7-.4 4.4-2.6 6.8-7 7z"/><path d="M6 21h12"/></symbol>
-  <symbol id="ic-hormone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5l5 5"/><path d="M16.5 7.5 9 15l-3 1 1-3 7.5-7.5"/><path d="M6 18l-2 2"/><path d="M11.5 10.5 13.5 12.5"/><path d="M4.5 19.5 19.5 4.5"/></symbol>
-  <symbol id="ic-antibiotic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="9" width="17" height="6" rx="3" transform="rotate(-45 12 12)"/><path d="M9.2 14.8 14.8 9.2"/><path d="M4.5 19.5 19.5 4.5"/></symbol>
-  <symbol id="ic-nongmo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3c0 4 10 5 10 9s-10 5-10 9"/><path d="M17 3c0 4-10 5-10 9s10 5 10 9"/><path d="M8.5 6h7M8.5 18h7"/><path d="M4.5 19.5 19.5 4.5"/></symbol>
-  <symbol id="ic-gluten" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="M12 9c-2.5-.3-4-2-4-4.5 2.5.3 4 2 4 4.5z"/><path d="M12 9c2.5-.3 4-2 4-4.5-2.5.3-4 2-4 4.5z"/><path d="M12 13.5c-2.5-.3-4-2-4-4.5 2.5.3 4 2 4 4.5z"/><path d="M12 13.5c2.5-.3 4-2 4-4.5-2.5.3-4 2-4 4.5z"/><path d="M4.5 19.5 19.5 4.5"/></symbol>
-  <symbol id="ic-dairy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8l2 4v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7z"/><path d="M6 7h12"/><path d="M6 12h12"/><path d="M4.5 19.5 19.5 4.5"/></symbol>
-  <symbol id="ic-lactose" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10l-1.2 17a1 1 0 0 1-1 .9H9.2a1 1 0 0 1-1-.9z"/><path d="M7.6 11h8.8"/><path d="M4.5 19.5 19.5 4.5"/></symbol>
-  <symbol id="ic-soy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 17.5c-2.5-2.5-2-7 1-10s7.5-3.5 10-1 2 7-1 10-7.5 3.5-10 1z"/><circle cx="9.5" cy="14.5" r="1.4"/><circle cx="12.5" cy="11.5" r="1.4"/><circle cx="15.5" cy="8.5" r="1.4"/><path d="M4.5 19.5 19.5 4.5"/></symbol>
-  <symbol id="ic-paleo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9.5a2.5 2.5 0 1 1 2.5-2.5L14.5 12 17 9.5a2.5 2.5 0 1 1 2.5 2.5L17 14.5l-5 5a2.5 2.5 0 1 1-2.5-2.5L7 14.5a2.5 2.5 0 1 1 0-5z"/></symbol>
-  <symbol id="ic-keto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c1 4 5 5.5 5 10a5 5 0 0 1-10 0c0-2.5 1.5-4 2-5.5.8 1 1.5 2 1.5 3.5C12 8 12 5.5 12 3z"/></symbol>
-  <symbol id="ic-additives" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 3h5"/><path d="M10 3v6L5.2 17.6A2 2 0 0 0 7 20.5h10a2 2 0 0 0 1.8-2.9L14 9V3"/><path d="M8 14h8"/><path d="M4.5 19.5 19.5 4.5"/></symbol>
+  <symbol id="ic-halal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke-width="1.35"/><path stroke-width="1.7" d="M7.9 12.5l2.8 2.8 5.4-5.8"/></symbol>
+  <symbol id="ic-grass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke-width="1.35"/><path d="M12 17.4v-4.6"/><path d="M12 14.6c-2.8-.2-4.5-1.7-4.9-4.4 2.8.2 4.6 1.7 4.9 4.4z"/><path d="M12 12.8c.3-2.7 2-4.2 4.9-4.4-.4 2.7-2.1 4.2-4.9 4.4z"/><path d="M9 17.4h6"/></symbol>
+  <symbol id="ic-hormone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke-width="1.35"/><path d="M6.9 17.1l2.1-2.1"/><path d="M9 15l5-5 1.4 1.4-5 5z"/><path d="M14.7 10.7l1.7-1.7"/><path d="M15.5 8.1l1.8 1.8"/><path d="M7 7l10 10" style="stroke:var(--bone,#fff)" stroke-width="2.3" stroke-linecap="butt"/><path d="M5.2 5.2 18.8 18.8"/></symbol>
+  <symbol id="ic-antibiotic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke-width="1.35"/><rect x="7" y="10" width="10" height="4" rx="2" transform="rotate(-45 12 12)"/><path d="M7 7l10 10" style="stroke:var(--bone,#fff)" stroke-width="2.3" stroke-linecap="butt"/><path d="M5.2 5.2 18.8 18.8"/></symbol>
+  <symbol id="ic-nongmo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke-width="1.35"/><path d="M9.8 7.2c0 2.5 4.4 2.3 4.4 4.8s-4.4 2.3-4.4 4.8"/><path d="M14.2 7.2c0 2.5-4.4 2.3-4.4 4.8s4.4 2.3 4.4 4.8"/><path d="M10.4 8.6h3.2M10.4 15.4h3.2"/><path d="M7 7l10 10" style="stroke:var(--bone,#fff)" stroke-width="2.3" stroke-linecap="butt"/><path d="M5.2 5.2 18.8 18.8"/></symbol>
+  <symbol id="ic-gluten" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke-width="1.35"/><path d="M12 17.2V7"/><path d="M12 8.8 9.9 7.5M12 8.8l2.1-1.3M12 11.6 9.7 10.2M12 11.6l2.3-1.4M12 14.4 9.7 13M12 14.4l2.3-1.4"/><path d="M7 7l10 10" style="stroke:var(--bone,#fff)" stroke-width="2.3" stroke-linecap="butt"/><path d="M5.2 5.2 18.8 18.8"/></symbol>
+  <symbol id="ic-dairy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke-width="1.35"/><path d="M9.2 17.8v-7.2l1.1-2.4h3.4l1.1 2.4v7.2z"/><path d="M9.2 10.6h5.6"/><path d="M7 7l10 10" style="stroke:var(--bone,#fff)" stroke-width="2.3" stroke-linecap="butt"/><path d="M5.2 5.2 18.8 18.8"/></symbol>
+  <symbol id="ic-lactose" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke-width="1.35"/><path d="M9.5 7.8h5l-.7 9.2a1 1 0 0 1-1 .9h-1.6a1 1 0 0 1-1-.9z"/><path d="M10 11.4h4"/><path d="M7 7l10 10" style="stroke:var(--bone,#fff)" stroke-width="2.3" stroke-linecap="butt"/><path d="M5.2 5.2 18.8 18.8"/></symbol>
+  <symbol id="ic-soy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke-width="1.35"/><path d="M8.2 15.8A8 8 0 0 1 15.8 8.2 8 8 0 0 1 8.2 15.8z"/><circle cx="10.3" cy="13.7" r="1"/><circle cx="13.7" cy="10.3" r="1"/><path d="M7 7l10 10" style="stroke:var(--bone,#fff)" stroke-width="2.3" stroke-linecap="butt"/><path d="M5.2 5.2 18.8 18.8"/></symbol>
+  <symbol id="ic-paleo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke-width="1.35"/><path d="M8.7 10.35a1.65 1.65 0 1 1 1.65-1.65L13.65 12l1.65-1.65a1.65 1.65 0 1 1 1.65 1.65L15.3 13.65l-3.3 3.3a1.65 1.65 0 1 1-1.65-1.65L8.7 13.65a1.65 1.65 0 1 1 0-3.3z"/></symbol>
+  <symbol id="ic-keto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke-width="1.35"/><path d="M12 6.1c.7 2.6 3.3 3.6 3.3 6.6a3.3 3.3 0 0 1-6.6 0c0-1.6 1-2.6 1.3-3.6.5.7 1 1.3 1 2.3.5-1.4.5-3.1 1-5.3z"/><path stroke-width="1.2" d="M12 15.4c-.75-.3-1.15-.95-1.15-1.65 0-.7.5-1.25 1.15-1.95.65.7 1.15 1.25 1.15 1.95 0 .7-.4 1.35-1.15 1.65z"/></symbol>
+  <symbol id="ic-additives" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke-width="1.35"/><path d="M10.9 7.8v2.5l-2.5 4.8a1.35 1.35 0 0 0 1.2 2h4.8a1.35 1.35 0 0 0 1.2-2l-2.5-4.8V7.8"/><path d="M10.3 7.8h3.4"/><path d="M9.7 13.9h4.6"/><path d="M7 7l10 10" style="stroke:var(--bone,#fff)" stroke-width="2.3" stroke-linecap="butt"/><path d="M5.2 5.2 18.8 18.8"/></symbol>
 </svg>
 <section class="cert" aria-label="Certifications">
   <div class="cert-track"><div class="cert-i"><svg class="cert-mark" width="28" height="28" aria-hidden="true"><use href="#ic-halal"/></svg><span>Halal Certified</span></div><div class="cert-i"><svg class="cert-mark" width="28" height="28" aria-hidden="true"><use href="#ic-grass"/></svg><span>Grass-Fed</span></div><div class="cert-i"><svg class="cert-mark" width="28" height="28" aria-hidden="true"><use href="#ic-hormone"/></svg><span>Hormone-Free</span></div><div class="cert-i"><svg class="cert-mark" width="28" height="28" aria-hidden="true"><use href="#ic-antibiotic"/></svg><span>Antibiotic-Free</span></div><div class="cert-i"><svg class="cert-mark" width="28" height="28" aria-hidden="true"><use href="#ic-nongmo"/></svg><span>Non-GMO</span></div><div class="cert-i"><svg class="cert-mark" width="28" height="28" aria-hidden="true"><use href="#ic-gluten"/></svg><span>Gluten-Free</span></div><div class="cert-i"><svg class="cert-mark" width="28" height="28" aria-hidden="true"><use href="#ic-dairy"/></svg><span>Dairy-Free</span></div><div class="cert-i"><svg class="cert-mark" width="28" height="28" aria-hidden="true"><use href="#ic-lactose"/></svg><span>Lactose-Free</span></div><div class="cert-i"><svg class="cert-mark" width="28" height="28" aria-hidden="true"><use href="#ic-soy"/></svg><span>Soy-Free</span></div><div class="cert-i"><svg class="cert-mark" width="28" height="28" aria-hidden="true"><use href="#ic-paleo"/></svg><span>Paleo Friendly</span></div><div class="cert-i"><svg class="cert-mark" width="28" height="28" aria-hidden="true"><use href="#ic-keto"/></svg><span>Keto Friendly</span></div><div class="cert-i"><svg class="cert-mark" width="28" height="28" aria-hidden="true"><use href="#ic-additives"/></svg><span>No Artificial Additives</span></div><div class="cert-i" aria-hidden="true"><svg class="cert-mark" width="28" height="28" aria-hidden="true"><use href="#ic-halal"/></svg><span>Halal Certified</span></div><div class="cert-i" aria-hidden="true"><svg class="cert-mark" width="28" height="28" aria-hidden="true"><use href="#ic-grass"/></svg><span>Grass-Fed</span></div><div class="cert-i" aria-hidden="true"><svg class="cert-mark" width="28" height="28" aria-hidden="true"><use href="#ic-hormone"/></svg><span>Hormone-Free</span></div><div class="cert-i" aria-hidden="true"><svg class="cert-mark" width="28" height="28" aria-hidden="true"><use href="#ic-antibiotic"/></svg><span>Antibiotic-Free</span></div><div class="cert-i" aria-hidden="true"><svg class="cert-mark" width="28" height="28" aria-hidden="true"><use href="#ic-nongmo"/></svg><span>Non-GMO</span></div><div class="cert-i" aria-hidden="true"><svg class="cert-mark" width="28" height="28" aria-hidden="true"><use href="#ic-gluten"/></svg><span>Gluten-Free</span></div><div class="cert-i" aria-hidden="true"><svg class="cert-mark" width="28" height="28" aria-hidden="true"><use href="#ic-dairy"/></svg><span>Dairy-Free</span></div><div class="cert-i" aria-hidden="true"><svg class="cert-mark" width="28" height="28" aria-hidden="true"><use href="#ic-lactose"/></svg><span>Lactose-Free</span></div><div class="cert-i" aria-hidden="true"><svg class="cert-mark" width="28" height="28" aria-hidden="true"><use href="#ic-soy"/></svg><span>Soy-Free</span></div><div class="cert-i" aria-hidden="true"><svg class="cert-mark" width="28" height="28" aria-hidden="true"><use href="#ic-paleo"/></svg><span>Paleo Friendly</span></div><div class="cert-i" aria-hidden="true"><svg class="cert-mark" width="28" height="28" aria-hidden="true"><use href="#ic-keto"/></svg><span>Keto Friendly</span></div><div class="cert-i" aria-hidden="true"><svg class="cert-mark" width="28" height="28" aria-hidden="true"><use href="#ic-additives"/></svg><span>No Artificial Additives</span></div></div>
@@ -1629,6 +1712,25 @@ p{margin:0 0 1em;max-width:66ch}
   </div>
 </footer>
 
+<!-- ══════════ NUTRITIONAL INFORMATION MODAL ══════════
+     The image is the full nutrition-panel artwork. It currently reuses the
+     pack shot as a placeholder via data-photo; in the Shopify theme replace
+     that img with:
+       <img src="{{ 'nutrition-panel.png' | asset_url }}"
+            alt="Protein Gold full nutritional information" loading="lazy">  -->
+<div class="nutri" id="nutriModal" role="dialog" aria-modal="true"
+     aria-label="Nutritional information" aria-hidden="true">
+  <div class="nutri-card">
+    <div class="nutri-bar" aria-hidden="true"><i></i>Nutritional Information · per 20g serving</div>
+    <button class="nutri-x" id="nutriClose" aria-label="Close nutritional information">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <div class="nutri-scroll">
+      <img data-photo="pack" alt="Protein Gold full nutritional information panel" decoding="async">
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
   /* ------------------------------------------------------------------
@@ -1904,6 +2006,57 @@ p{margin:0 0 1em;max-width:66ch}
       new IntersectionObserver(function(en){ en.forEach(function(e){ if(e.isIntersecting) start(); else if(timer){ clearInterval(timer); timer = null; } }); }, {threshold:.3}).observe(rail);
     } else start();
   })();
+  /* ---- nutritional information modal ------------------------------------
+     Class-driven so the exit transition plays. Scroll is locked with a
+     scrollbar-gap compensation so the page never shifts sideways. Focus
+     moves to the close button on open and returns to the trigger on close;
+     Tab is held inside the dialog while it is open. ESC and a click on the
+     backdrop both close it. */
+  (function(){
+    var modal = $('nutriModal'), open = $('nutriOpen'), close = $('nutriClose');
+    if(!modal || !open || !close) return;
+    var card = modal.querySelector('.nutri-card');
+
+    function lock(on){
+      if(on){
+        var gap = window.innerWidth - document.documentElement.clientWidth;
+        document.body.style.paddingRight = gap > 0 ? gap + 'px' : '';
+        document.body.classList.add('nutri-lock');
+      } else {
+        document.body.classList.remove('nutri-lock');
+        document.body.style.paddingRight = '';
+      }
+    }
+    function show(){
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden','false');
+      lock(true);
+      close.focus({preventScroll:true});
+      document.addEventListener('keydown', onKey);
+    }
+    function hide(){
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden','true');
+      lock(false);
+      document.removeEventListener('keydown', onKey);
+      open.focus({preventScroll:true});
+    }
+    function onKey(e){
+      if(e.key === 'Escape') hide();
+      /* single-focusable trap: keep Tab on the close button */
+      if(e.key === 'Tab' && !card.contains(document.activeElement)) {
+        e.preventDefault(); close.focus();
+      } else if(e.key === 'Tab' && document.activeElement === close){
+        e.preventDefault();
+      }
+    }
+    open.addEventListener('click', show);
+    close.addEventListener('click', hide);
+    modal.addEventListener('click', function(e){
+      if(!card.contains(e.target)) hide();   /* backdrop click */
+    });
+  })();
+
   render();
 })();
 </script>
